@@ -1,0 +1,6 @@
+POST http://0.0.0.0:8001/extract
+Content-Type: application/json
+
+{
+    "url":"https://www.scribd.com/document/884609914/MANOK-KUMAR-AADHAR-CARD"
+}

@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+langchain
+pypdf
+requests
+python-multipart
+boto3
+paddleocr
+paddlepaddle
