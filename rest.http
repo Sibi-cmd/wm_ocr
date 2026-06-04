@@ -1,6 +1,18 @@
-POST http://0.0.0.0:8001/extract
+POST   http://127.0.0.1:8001/extract
 Content-Type: application/json
 
 {
     "url":"https://www.scribd.com/document/884609914/MANOK-KUMAR-AADHAR-CARD"
 }
+
+###
+
+POST  http://127.0.0.1:8001/extract/documents
+Content-Type: multipart/form-data; boundary=----OCRBoundary7MA4YWxkTrZu0gW
+
+------OCRBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="EV_Fleet_Incident_Management (1).pdf"
+Content-Type: application/pdf
+
+< C:\Users\rmsan\Downloads\EV_Fleet_Incident_Management (1).pdf
+------OCRBoundary7MA4YWxkTrZu0gW--
