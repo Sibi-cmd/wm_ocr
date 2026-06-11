@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Test artifacts
+test_invoice.png
+test_invalid.txt
+test_extract.py

@@ -1,3 +1,44 @@
+### Health Check
+GET http://127.0.0.1:8001/
+
+### ============================================================
+### WAREHOUSE OCR ENDPOINTS
+### ============================================================
+
+### Single Document Extraction (upload a warehouse document)
+POST http://127.0.0.1:8001/api/v1/ocr/extract
+Content-Type: multipart/form-data; boundary=----WMOCRBoundary
+
+------WMOCRBoundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+< C:\Users\rmsan\Downloads\EV_Fleet_Incident_Management (1).pdf
+------WMOCRBoundary--
+
+###
+
+### Batch Document Extraction (upload multiple documents)
+POST http://127.0.0.1:8001/api/v1/ocr/extract-batch
+Content-Type: multipart/form-data; boundary=----WMOCRBatch
+
+------WMOCRBatch
+Content-Disposition: form-data; name="files"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+< C:\Users\rmsan\Downloads\EV_Fleet_Incident_Management (1).pdf
+------WMOCRBatch
+Content-Disposition: form-data; name="files"; filename="packing_list.pdf"
+Content-Type: application/pdf
+
+< C:\Users\rmsan\Downloads\EV_Fleet_Incident_Management (1).pdf
+------WMOCRBatch--
+
+### ============================================================
+### LEGACY ENDPOINTS (still working)
+### ============================================================
+
+### Extract from URL
 POST   http://127.0.0.1:8001/extract
 Content-Type: application/json
 
@@ -7,6 +48,7 @@ Content-Type: application/json
 
 ###
 
+### Extract from Uploaded File
 POST  http://127.0.0.1:8001/extract/documents
 Content-Type: multipart/form-data; boundary=----OCRBoundary7MA4YWxkTrZu0gW
 

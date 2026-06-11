@@ -9,3 +9,6 @@ paddleocr
 paddlepaddle
 python-docx
 beautifulsoup4
+pymupdf
+numpy
+Pillow

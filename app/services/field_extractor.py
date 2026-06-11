@@ -1,0 +1,331 @@
+"""
+Warehouse field extractor — pulls structured header-level data out
+of raw OCR text using regex patterns.
+
+Populates DocumentInfo, PartyInfo, ShipmentInfo, FinancialInfo,
+and ReceiptInfo from the schemas module.
+
+The extraction is intentionally regex-based (no LLM calls) so it
+runs instantly and deterministically.  Patterns are tuned for the
+most common Indian and international warehouse document formats.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Optional
+
+from app.schemas import (
+    DocumentInfo,
+    ExtractedData,
+    FinancialInfo,
+    PartyInfo,
+    ReceiptInfo,
+    ShipmentInfo,
+)
+from app.services.dimension_parser import parse_package_dimensions, parse_package_weight
+from app.services.product_parser import parse_products
+
+
+# ---------------------------------------------------------------------------
+# Generic helpers
+# ---------------------------------------------------------------------------
+
+def _find_first(text: str, pattern: str, group: int = 1) -> str:
+    """Return the first regex match group, or '' if not found."""
+    match = re.search(pattern, text, re.IGNORECASE)
+    return match.group(group).strip() if match else ""
+
+
+def _find_amount(text: str, pattern: str) -> str:
+    """Extract a monetary amount — keeps commas and decimals."""
+    match = re.search(pattern, text, re.IGNORECASE)
+    if match:
+        raw = match.group(1).strip()
+        # Remove currency symbols but keep digits, commas, dots
+        return re.sub(r"[^\d,.]", "", raw)
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Date normalisation
+# ---------------------------------------------------------------------------
+
+_DATE_PATTERNS = [
+    # DD/MM/YYYY or DD-MM-YYYY
+    r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})",
+    # YYYY-MM-DD (ISO)
+    r"(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})",
+    # DD Mon YYYY  (e.g. 15 Jan 2026)
+    r"(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})",
+    # Space-separated: DD MM YYYY (OCR sometimes drops separators)
+    r"(\d{1,2})\s+(\d{1,2})\s+(\d{4})",
+]
+
+_MONTH_MAP = {
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+    "may": "05", "jun": "06", "jul": "07", "aug": "08",
+    "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+}
+
+
+def _normalise_date(raw: str) -> str:
+    """Try to normalise a raw date string to YYYY-MM-DD."""
+    if not raw:
+        return ""
+
+    # DD/MM/YYYY or DD-MM-YYYY
+    m = re.match(r"^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$", raw.strip())
+    if m:
+        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+
+    # YYYY-MM-DD (already ISO)
+    m = re.match(r"^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$", raw.strip())
+    if m:
+        return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+
+    # DD Mon YYYY
+    m = re.match(
+        r"^(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})$",
+        raw.strip(),
+        re.IGNORECASE,
+    )
+    if m:
+        month = _MONTH_MAP.get(m.group(2).lower()[:3], "00")
+        return f"{m.group(3)}-{month}-{m.group(1).zfill(2)}"
+
+    # Space-separated: DD MM YYYY (OCR sometimes drops separators)
+    m = re.match(r"^(\d{1,2})\s+(\d{1,2})\s+(\d{4})$", raw.strip())
+    if m:
+        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+
+    return raw  # Return as-is if we can't parse
+
+
+def _extract_date_near(text: str, label_pattern: str) -> str:
+    """Find a date that appears near a label keyword."""
+    # First try: label followed by date on the same line
+    for dp in _DATE_PATTERNS:
+        pattern = label_pattern + r"[:\s#-]*" + dp
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            groups = match.groups()
+            # Last 3 groups are the date parts
+            raw_date = " ".join(groups[-3:]) if len(groups) >= 3 else match.group(0)
+            return _normalise_date(raw_date)
+
+    # Fallback: just find any date in the text
+    for dp in _DATE_PATTERNS:
+        match = re.search(dp, text, re.IGNORECASE)
+        if match:
+            return _normalise_date(match.group(0))
+
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Field extraction
+# ---------------------------------------------------------------------------
+
+def _extract_document_info(text: str, doc_type: str) -> DocumentInfo:
+    """Extract document-level identifiers."""
+    info = DocumentInfo()
+
+    # Document date — try labelled, then any date
+    info.document_date = _extract_date_near(
+        text,
+        r"(?:date|dated|invoice\s*date|order\s*date|po\s*date|delivery\s*date|grn\s*date)"
+    )
+
+    # PO number
+    info.po_number = _find_first(
+        text,
+        r"(?:purchase\s*order|po)\s*(?:no|number|#|:)[:\s#-]*([A-Za-z0-9_\-/]+)"
+    )
+
+    # Invoice number
+    info.invoice_number = _find_first(
+        text,
+        r"(?:i?n?voice|inv)\s*(?:no|number|#|:|\.|;)[:\s#.\-]*([A-Za-z0-9_\-/]+)"
+    )
+
+    # Delivery / Challan number
+    info.delivery_number = _find_first(
+        text,
+        r"(?:delivery\s*(?:note)?|challan)\s*(?:no|number|#|:)[:\s#-]*([A-Za-z0-9_\-/]+)"
+    )
+
+    # GRN number
+    info.grn_number = _find_first(
+        text,
+        r"(?:grn|goods\s*receipt)\s*(?:no|number|#|:)[:\s#-]*([A-Za-z0-9_\-/]+)"
+    )
+
+    # Generic document number — use the type-specific one, or fall back
+    if doc_type == "purchase_order" and info.po_number:
+        info.document_number = info.po_number
+    elif doc_type == "invoice" and info.invoice_number:
+        info.document_number = info.invoice_number
+    elif doc_type == "delivery_note" and info.delivery_number:
+        info.document_number = info.delivery_number
+    elif doc_type == "grn" and info.grn_number:
+        info.document_number = info.grn_number
+    else:
+        # Try a generic "document no" or "doc no" pattern
+        info.document_number = _find_first(
+            text,
+            r"(?:document|doc)\s*(?:no|number|#|:)[:\s#-]*([A-Za-z0-9_\-/]+)"
+        )
+
+    return info
+
+
+def _extract_party_info(text: str) -> PartyInfo:
+    """Extract supplier, buyer, and warehouse names."""
+    info = PartyInfo()
+
+    # Supplier name — look for "Supplier: XYZ" or "Vendor: XYZ"
+    info.supplier_name = _find_first(
+        text,
+        r"(?:supplier|vendor)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$|(?:supplier|vendor|buyer|warehouse|address|phone|tel|gstin|gst|email|fax))",
+    )
+    # Clean up trailing whitespace / punctuation
+    info.supplier_name = re.sub(r"[\s,.:]+$", "", info.supplier_name)
+
+    # Supplier ID / code
+    info.supplier_id = _find_first(
+        text,
+        r"(?:supplier|vendor)\s*(?:id|code|no|number)[:\s#-]+([A-Za-z0-9_\-/]+)"
+    )
+
+    # Buyer name
+    info.buyer_name = _find_first(
+        text,
+        r"(?:buyer|bill\s*to|sold\s*to|customer)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$|(?:supplier|vendor|buyer|warehouse|address|phone|tel|gstin|gst|email|fax))",
+    )
+    info.buyer_name = re.sub(r"[\s,.:]+$", "", info.buyer_name)
+
+    # Warehouse name
+    info.warehouse_name = _find_first(
+        text,
+        r"(?:warehouse|godown|store|depot)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$|(?:supplier|vendor|buyer|warehouse|address|phone|tel|gstin|gst|email|fax))",
+    )
+    info.warehouse_name = re.sub(r"[\s,.:]+$", "", info.warehouse_name)
+
+    return info
+
+
+def _extract_shipment_info(text: str) -> ShipmentInfo:
+    """Extract transport and shipping details."""
+    info = ShipmentInfo()
+
+    info.shipment_id = _find_first(
+        text,
+        r"(?:shipment|consignment)\s*(?:id|no|number|#)[:\s#-]*([A-Za-z0-9_\-/]+)"
+    )
+
+    info.vehicle_number = _find_first(
+        text,
+        r"(?:vehicle|truck|lorry)\s*(?:no|number|#|reg)[:\s#-]*([A-Za-z0-9\s\-]+?)(?:\n|$|(?:driver|transport|carrier|date))"
+    )
+    info.vehicle_number = re.sub(r"[\s]+$", "", info.vehicle_number)
+
+    info.carrier_name = _find_first(
+        text,
+        r"(?:carrier)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$)"
+    )
+    info.carrier_name = re.sub(r"[\s,.:]+$", "", info.carrier_name)
+
+    info.transporter_name = _find_first(
+        text,
+        r"(?:transporter|transport)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$)"
+    )
+    info.transporter_name = re.sub(r"[\s,.:]+$", "", info.transporter_name)
+
+    info.delivery_date = _extract_date_near(
+        text,
+        r"(?:delivery\s*date|expected\s*date|eta|arrival\s*date)"
+    )
+
+    return info
+
+
+def _extract_financial_info(text: str) -> FinancialInfo:
+    """Extract monetary amounts."""
+    info = FinancialInfo()
+
+    info.unit_price = _find_amount(
+        text,
+        r"(?:unit\s*price|rate|price\s*per\s*unit)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+    )
+
+    info.subtotal = _find_amount(
+        text,
+        r"(?:sub\s*total|subtotal)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+    )
+
+    info.tax = _find_amount(
+        text,
+        r"(?:tax|gst|vat|cgst\s*\+\s*sgst|igst)\s*(?:amount)?[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+    )
+
+    info.total_amount = _find_amount(
+        text,
+        r"(?:total\s*amount|grand\s*total|net\s*payable|total\s*value|total\s*amt|amount\s*payable)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+    )
+
+    return info
+
+
+def _extract_receipt_info(text: str) -> ReceiptInfo:
+    """Extract goods-receipt quantities and remarks."""
+    info = ReceiptInfo()
+
+    info.received_quantity = _find_first(
+        text,
+        r"(?:received|recd)\s*(?:qty|quantity)[:\s]*(\d+(?:\.\d+)?)"
+    )
+
+    info.damaged_quantity = _find_first(
+        text,
+        r"(?:damaged|damage|reject)\s*(?:qty|quantity)[:\s]*(\d+(?:\.\d+)?)"
+    )
+
+    info.accepted_quantity = _find_first(
+        text,
+        r"(?:accepted|accept|good)\s*(?:qty|quantity)[:\s]*(\d+(?:\.\d+)?)"
+    )
+
+    info.remarks = _find_first(
+        text,
+        r"(?:remark|remarks|observation|note|comment|damage\s*remark)[s]?[:\s]+(.+?)(?:\n|$)"
+    )
+
+    return info
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def extract_fields(
+    raw_text: str,
+    ocr_lines: list[str],
+    document_type: str,
+) -> ExtractedData:
+    """Extract all warehouse fields from raw OCR text.
+
+    Returns a fully populated ExtractedData object.
+    """
+    data = ExtractedData()
+
+    data.document_info = _extract_document_info(raw_text, document_type)
+    data.party_info = _extract_party_info(raw_text)
+    data.shipment_info = _extract_shipment_info(raw_text)
+    data.financial_info = _extract_financial_info(raw_text)
+    data.receipt_info = _extract_receipt_info(raw_text)
+
+    # Product rows
+    data.products = parse_products(raw_text, ocr_lines)
+
+    return data

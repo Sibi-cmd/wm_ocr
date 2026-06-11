@@ -1,0 +1,127 @@
+"""
+Dimension & weight parsers for warehouse documents.
+
+Extracts physical measurements from free-text OCR output using regex
+patterns that cover the most common formats found on packing lists,
+invoices, and product labels.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Optional
+
+from app.schemas import Dimensions, Weight
+
+
+# ---------------------------------------------------------------------------
+# Dimension Patterns
+# ---------------------------------------------------------------------------
+# Matches patterns like:
+#   40x30x20 cm   |   40 x 30 x 20 cm   |   40cm × 30cm × 20cm
+#   40 X 30 X 20  |   40*30*20 mm        |   L40 W30 H20 cm
+# ---------------------------------------------------------------------------
+
+_DIM_SEP = r"[\s]*[x×X*][\s]*"
+_NUM = r"(\d+(?:\.\d+)?)"
+
+# Classic L×W×H pattern
+_PATTERN_LWH = re.compile(
+    _NUM + _DIM_SEP + _NUM + _DIM_SEP + _NUM
+    + r"[\s]*(cm|mm|m|in|inch|inches|ft|feet)?",
+    re.IGNORECASE,
+)
+
+# Labelled: L: 40 W: 30 H: 20 cm
+_PATTERN_LABELLED = re.compile(
+    r"(?:L|length)[:\s]*" + _NUM
+    + r"[\s,;]*(?:W|width)[:\s]*" + _NUM
+    + r"[\s,;]*(?:H|height)[:\s]*" + _NUM
+    + r"[\s]*(cm|mm|m|in|inch|inches|ft|feet)?",
+    re.IGNORECASE,
+)
+
+
+def parse_dimensions(text: str) -> Optional[Dimensions]:
+    """Try to parse L×W×H dimensions from a text fragment.
+
+    Returns None if no dimension pattern is found.
+    """
+    if not text:
+        return None
+
+    for pattern in (_PATTERN_LWH, _PATTERN_LABELLED):
+        match = pattern.search(text)
+        if match:
+            groups = match.groups()
+            unit = groups[3] if len(groups) > 3 and groups[3] else "cm"
+            return Dimensions(
+                length=float(groups[0]),
+                width=float(groups[1]),
+                height=float(groups[2]),
+                unit=unit.lower().strip(),
+            )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Weight Patterns
+# ---------------------------------------------------------------------------
+# Matches:
+#   3.5 kg  |  3.5kg  |  350 g  |  7.7 lbs  |  weight: 3.5 kg
+#   net weight 12.5 kg  |  gross weight 15 kg
+# ---------------------------------------------------------------------------
+
+_WEIGHT_PATTERN = re.compile(
+    r"(?:(?:net|gross|total)[\s]*)?(?:weight|wt|wgt)?[:\s]*"
+    + _NUM
+    + r"[\s]*(kg|kgs|g|gm|gms|gram|grams|lb|lbs|pound|pounds|oz|ounce|ounces|ton|tons)",
+    re.IGNORECASE,
+)
+
+
+def parse_weight(text: str) -> Optional[Weight]:
+    """Try to parse a weight value from a text fragment.
+
+    Returns None if no weight pattern is found.
+    """
+    if not text:
+        return None
+
+    match = _WEIGHT_PATTERN.search(text)
+    if match:
+        value = float(match.group(1))
+        raw_unit = match.group(2).lower().strip()
+
+        # Normalise unit names
+        unit_map = {
+            "kg": "kg", "kgs": "kg",
+            "g": "g", "gm": "g", "gms": "g", "gram": "g", "grams": "g",
+            "lb": "lb", "lbs": "lb", "pound": "lb", "pounds": "lb",
+            "oz": "oz", "ounce": "oz", "ounces": "oz",
+            "ton": "ton", "tons": "ton",
+        }
+        unit = unit_map.get(raw_unit, raw_unit)
+        return Weight(value=value, unit=unit)
+
+    return None
+
+
+def parse_package_dimensions(text: str) -> str:
+    """Return the first raw dimension string found in the text, or ''."""
+    match = _PATTERN_LWH.search(text)
+    if match:
+        return match.group(0).strip()
+    match = _PATTERN_LABELLED.search(text)
+    if match:
+        return match.group(0).strip()
+    return ""
+
+
+def parse_package_weight(text: str) -> str:
+    """Return the first raw weight string found in the text, or ''."""
+    match = _WEIGHT_PATTERN.search(text)
+    if match:
+        return match.group(0).strip()
+    return ""
