@@ -19,14 +19,20 @@ from paddleocr import PaddleOCR
 from PIL import Image
 from pydantic import BaseModel
 
-app = FastAPI()
-
-ocr_model = PaddleOCR(
-    use_textline_orientation=True,
-    lang="en",
-    enable_mkldnn=False,
-    ocr_version="PP-OCRv4"
+app = FastAPI(
+    title="Warehouse OCR Micro-Service",
+    description="OCR service for warehouse document processing — extracts structured data from PDFs and images.",
+    version="2.0.0",
 )
+
+# Mount the warehouse document processing router
+from app.routers.warehouse import router as warehouse_router  # noqa: E402
+app.include_router(warehouse_router)
+
+# Shared OCR model — used by both legacy endpoints below and the new
+# warehouse pipeline (via app.services.ocr_engine).
+from app.services.ocr_engine import _get_model  # noqa: E402
+ocr_model = _get_model()
 
 
 class URLPayload(BaseModel):

@@ -1,0 +1,177 @@
+"""
+Warehouse OCR Router — FastAPI endpoints for warehouse document
+processing.
+
+Endpoints
+---------
+POST /api/v1/ocr/extract        — single document upload
+POST /api/v1/ocr/extract-batch  — batch (multiple) document upload
+
+Processing Pipeline (per file)
+------------------------------
+1. Validate file type & size
+2. Run OCR (PaddleOCR + PyMuPDF)
+3. Classify document type
+4. Extract structured warehouse fields
+5. Parse product rows
+6. Validate extracted data
+7. Build Django-ready storage payloads
+8. Return standardised JSON response
+"""
+
+from __future__ import annotations
+
+from typing import List
+
+from fastapi import APIRouter, File, UploadFile
+
+from app.config import MAX_BATCH_FILES
+from app.schemas import (
+    BatchFileResult,
+    BatchResponse,
+    SingleDocumentResponse,
+)
+from app.services.classifier import classify_document
+from app.services.field_extractor import extract_fields
+from app.services.ocr_engine import run_ocr
+from app.services.storage_mapper import build_storage_mapping, build_storage_payloads
+from app.services.validator import validate_extracted_data
+from app.utils.file_utils import validate_file
+
+router = APIRouter(prefix="/api/v1/ocr", tags=["Warehouse OCR"])
+
+
+# ---------------------------------------------------------------------------
+# Internal — process a single file through the full pipeline
+# ---------------------------------------------------------------------------
+
+def _process_single_file(file: UploadFile) -> SingleDocumentResponse:
+    """Run the complete OCR pipeline on one uploaded file.
+
+    Returns a fully populated SingleDocumentResponse (never raises).
+    """
+    response = SingleDocumentResponse(file_name=file.filename or "unknown")
+
+    # --- Step 1: Validate file ---
+    file_bytes, validation_errors = validate_file(file)
+    if validation_errors:
+        response.status = "failed"
+        response.errors = validation_errors
+        return response
+
+    try:
+        # --- Step 2: Run OCR ---
+        raw_text, ocr_lines = run_ocr(file_bytes, file.filename or "")
+        response.raw_text = raw_text
+        response.ocr_output = ocr_lines
+
+        if not raw_text.strip():
+            response.status = "failed"
+            response.errors.append("OCR produced no text from this file.")
+            return response
+
+        # --- Step 3: Classify document ---
+        doc_type, confidence = classify_document(raw_text)
+        response.document_type = doc_type
+        response.confidence_score = confidence
+
+        # --- Step 4 & 5: Extract fields + products ---
+        extracted_data = extract_fields(raw_text, ocr_lines, doc_type)
+        response.extracted_data = extracted_data
+
+        # --- Step 6: Validate ---
+        warnings, errors = validate_extracted_data(extracted_data, doc_type)
+        response.warnings = warnings
+        response.errors = errors
+
+        # --- Step 7: Build storage payloads ---
+        response.storage_mapping = build_storage_mapping(doc_type)
+        response.storage_payloads = build_storage_payloads(
+            extracted_data=extracted_data,
+            raw_text=raw_text,
+            document_type=doc_type,
+            file_name=file.filename or "unknown",
+            confidence_score=confidence,
+        )
+
+        # Status is "success" even if there are warnings, but "failed" if
+        # there are critical errors
+        if errors:
+            response.status = "partial"
+
+    except Exception as exc:
+        response.status = "failed"
+        response.errors.append(f"Processing error: {exc}")
+
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/extract", response_model=SingleDocumentResponse)
+def extract_single(file: UploadFile = File(...)):
+    """Upload and process a single warehouse document.
+
+    Accepts PDF, PNG, JPG, or JPEG.  Returns structured extraction
+    results with document classification, field extraction, product
+    rows, validation warnings, and Django-ready storage payloads.
+    """
+    return _process_single_file(file)
+
+
+@router.post("/extract-batch", response_model=BatchResponse)
+def extract_batch(files: List[UploadFile] = File(...)):
+    """Upload and process multiple warehouse documents at once.
+
+    Each file is processed independently — one failure does **not**
+    stop the rest.  Accepts up to MAX_BATCH_FILES files per request.
+    """
+    batch = BatchResponse(total_files=len(files))
+
+    # Guard against too many files
+    if len(files) > MAX_BATCH_FILES:
+        batch.status = "failed"
+        batch.results.append(
+            BatchFileResult(
+                file_name="(batch)",
+                status="failed",
+                errors=[
+                    f"Too many files. Maximum {MAX_BATCH_FILES} files per batch, got {len(files)}."
+                ],
+            )
+        )
+        batch.failed_files = len(files)
+        return batch
+
+    for file in files:
+        result = _process_single_file(file)
+
+        file_result = BatchFileResult(
+            file_name=result.file_name,
+            status=result.status,
+            document_type=result.document_type,
+            confidence_score=result.confidence_score,
+            extracted_data=result.extracted_data,
+            storage_mapping=result.storage_mapping,
+            storage_payloads=result.storage_payloads,
+            warnings=result.warnings,
+            errors=result.errors,
+        )
+        batch.results.append(file_result)
+
+        if result.status == "failed":
+            batch.failed_files += 1
+        else:
+            batch.processed_files += 1
+
+    # Overall batch status
+    if batch.failed_files == batch.total_files:
+        batch.status = "failed"
+    elif batch.failed_files > 0:
+        batch.status = "partial"
+    else:
+        batch.status = "success"
+
+    return batch
