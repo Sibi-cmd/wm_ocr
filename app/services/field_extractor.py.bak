@@ -60,8 +60,6 @@ _DATE_PATTERNS = [
     r"(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})",
     # Space-separated: DD MM YYYY (OCR sometimes drops separators)
     r"(\d{1,2})\s+(\d{1,2})\s+(\d{4})",
-    # Space-separated: YYYY MM DD
-    r"(\d{4})\s+(\d{1,2})\s+(\d{1,2})",
 ]
 
 _MONTH_MAP = {
@@ -76,27 +74,20 @@ def _normalise_date(raw: str) -> str:
     if not raw:
         return ""
 
-    # Pre-clean: Replace any sequence of whitespaces (spaces, tabs, non-breaking spaces) with a single space
-    raw = re.sub(r"\s+", " ", raw).strip()
-    # Strip any common trailing punctuation like dots, commas, or semicolons
-    raw = re.sub(r"[.,;]+$", "", raw).strip()
-    # Also strip any leading labels or words (e.g. "Date:") if they somehow slipped in
-    raw = re.sub(r"^(?:date|dated)[:\s#-]+", "", raw, flags=re.IGNORECASE).strip()
-
     # DD/MM/YYYY or DD-MM-YYYY
-    m = re.match(r"^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$", raw)
+    m = re.match(r"^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$", raw.strip())
     if m:
         return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
 
     # YYYY-MM-DD (already ISO)
-    m = re.match(r"^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$", raw)
+    m = re.match(r"^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$", raw.strip())
     if m:
         return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
 
     # DD Mon YYYY
     m = re.match(
         r"^(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})$",
-        raw,
+        raw.strip(),
         re.IGNORECASE,
     )
     if m:
@@ -104,14 +95,9 @@ def _normalise_date(raw: str) -> str:
         return f"{m.group(3)}-{month}-{m.group(1).zfill(2)}"
 
     # Space-separated: DD MM YYYY (OCR sometimes drops separators)
-    m = re.match(r"^(\d{1,2})\s+(\d{1,2})\s+(\d{4})$", raw)
+    m = re.match(r"^(\d{1,2})\s+(\d{1,2})\s+(\d{4})$", raw.strip())
     if m:
         return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
-
-    # Space-separated: YYYY MM DD
-    m = re.match(r"^(\d{4})\s+(\d{1,2})\s+(\d{1,2})$", raw)
-    if m:
-        return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
 
     return raw  # Return as-is if we can't parse
 
@@ -148,7 +134,7 @@ def _extract_document_info(text: str, doc_type: str) -> DocumentInfo:
     # Document date — try labelled, then any date
     info.document_date = _extract_date_near(
         text,
-        r"(?:date|dated|invoice\s*date|nvoice\s*date|order\s*date|po\s*date|delivery\s*date|grn\s*date)"
+        r"(?:date|dated|invoice\s*date|order\s*date|po\s*date|delivery\s*date|grn\s*date)"
     )
 
     # PO number
@@ -160,7 +146,7 @@ def _extract_document_info(text: str, doc_type: str) -> DocumentInfo:
     # Invoice number
     info.invoice_number = _find_first(
         text,
-        r"(?:invoice|nvoice|inv)\s*(?:no|number|#|:|\.|;)[:\s#.\-]*([A-Za-z0-9_\-/]+)"
+        r"(?:i?n?voice|inv)\s*(?:no|number|#|:|\.|;)[:\s#.\-]*([A-Za-z0-9_\-/]+)"
     )
 
     # Delivery / Challan number
@@ -194,86 +180,17 @@ def _extract_document_info(text: str, doc_type: str) -> DocumentInfo:
     return info
 
 
-def _extract_party_name(text: str, role_kws: list[str], avoid_kws: list[str] = None, stop_kws: list[str] = None) -> str:
-    """Extract party name line-by-line using role keywords, suffixes, stop keywords, and multi-line checks."""
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    role_pattern = r"(?:\b|^)(?:" + "|".join(role_kws) + r")(?:\b|$)"
-    
-    all_role_kws = [
-        "supplier", "upplier", "vendor", "vendor", "endor",
-        "buyer", "uyer", "suyer", "bill to", "sold to", "customer", "customer", "ustomer",
-        "warehouse", "arehouse", "godown", "odown", "store", "tore", "depot", "epot",
-        "invoice", "nvoice", "date", "vehicle", "ehicle", "transporter", "ransporter", "gstin", "gst",
-        "total", "otal", "subtotal", "ubtotal"
-    ]
-    label_line_pattern = r"^\s*(?:" + "|".join(all_role_kws) + r")\b"
-
-    value = ""
-
-    for idx, line in enumerate(lines):
-        match = re.search(role_pattern, line, re.IGNORECASE)
-        if not match:
-            continue
-
-        if avoid_kws:
-            avoid_pattern = r"(?:\b|^)(?:" + "|".join(avoid_kws) + r")(?:\b|$)"
-            if re.search(avoid_pattern, line, re.IGNORECASE):
-                continue
-
-        # Extract value after the keyword
-        start_idx = match.end()
-        value = line[start_idx:].strip()
-
-        # Clean optional label suffixes: name, info, information, details, is, of
-        suffix_pattern = r"^(?:\s*name|\s*info|\s*information|\s*details|\s*is|\s*of)\b"
-        value = re.sub(suffix_pattern, "", value, flags=re.IGNORECASE).strip()
-
-        # Clean leading/trailing punctuation and whitespace
-        value = re.sub(r"^[:.\s#\-]+", "", value)
-        value = re.sub(r"[\s,.:]+$", "", value).strip()
-
-        # Truncate at stop keywords if present
-        if stop_kws and value:
-            stop_pattern = r"(?:\b|^)(?:" + "|".join(stop_kws) + r")(?:\b|$|:)"
-            parts = re.split(stop_pattern, value, flags=re.IGNORECASE)
-            value = parts[0].strip()
-
-        # If value is empty or just generic suffix word, search the next line
-        bad_words = {"information", "info", "details", "name"}
-        if not value or value.lower() in bad_words:
-            if idx + 1 < len(lines):
-                next_line = lines[idx + 1]
-                # Next line must not start with another field label
-                if not re.search(label_line_pattern, next_line, re.IGNORECASE):
-                    # Next line must not be a table header
-                    if not (next_line.lower().startswith("sku") or next_line.lower().startswith("qty") or next_line.lower().startswith("description")):
-                        value = next_line
-                        # Truncate at stop keywords for the next line value as well
-                        if stop_kws and value:
-                            stop_pattern = r"(?:\b|^)(?:" + "|".join(stop_kws) + r")(?:\b|$|:)"
-                            parts = re.split(stop_pattern, value, flags=re.IGNORECASE)
-                            value = parts[0].strip()
-                        break
-        else:
-            break
-
-    if value:
-        value = re.sub(r"[\s,.:]+$", "", value).strip()
-        if value.lower() not in {"information", "info", "details", "name"}:
-            return value
-    return ""
-
-
 def _extract_party_info(text: str) -> PartyInfo:
     """Extract supplier, buyer, and warehouse names."""
     info = PartyInfo()
 
-    # Supplier name
-    info.supplier_name = _extract_party_name(
+    # Supplier name — look for "Supplier: XYZ" or "Vendor: XYZ"
+    info.supplier_name = _find_first(
         text,
-        [r"supplier", r"upplier", r"vendor", r"endor"],
-        stop_kws=[r"supplier\s*id", r"gstin", r"address"]
+        r"(?:supplier|vendor)\s*(?:name|info|information)?[:.\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$|(?:(?:supplier|vendor|buyer|warehouse|address|phone|tel|gstin|gst|email|fax)\s*[:.]))",
     )
+    # Clean up trailing whitespace / punctuation
+    info.supplier_name = re.sub(r"[\s,.:]+$", "", info.supplier_name)
 
     # Supplier ID / code
     info.supplier_id = _find_first(
@@ -282,23 +199,18 @@ def _extract_party_info(text: str) -> PartyInfo:
     )
 
     # Buyer name
-    info.buyer_name = _extract_party_name(
+    info.buyer_name = _find_first(
         text,
-        [r"buyer", r"uyer", r"suyer", r"bill\s*to", r"sold\s*to", r"customer", r"ustomer"],
-        stop_kws=[r"warehouse\s*code", r"delivery\s*zone", r"address"]
+        r"(?:buyer|suyer|bill\s*to|sold\s*to|customer)\s*(?:name|info|information)?[:.\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$|(?:(?:supplier|vendor|buyer|warehouse|address|phone|tel|gstin|gst|email|fax)\s*[:.]))",
     )
+    info.buyer_name = re.sub(r"[\s,.:]+$", "", info.buyer_name)
 
     # Warehouse name
-    info.warehouse_name = _extract_party_name(
+    info.warehouse_name = _find_first(
         text,
-        [r"warehouse", r"arehouse", r"godown", r"odown", r"store", r"tore", r"depot", r"epot"],
-        avoid_kws=[r"buyer", r"uyer", r"suyer"],
-        stop_kws=[r"warehouse\s*code", r"delivery\s*zone", r"address"]
+        r"(?:warehouse|godown|store|depot)\s*(?:name|info|information)?[:.\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$|(?:(?:supplier|vendor|buyer|warehouse|address|phone|tel|gstin|gst|email|fax)\s*[:.]))",
     )
-
-    # Fallback to warehouse name for buyer name if empty
-    if not info.buyer_name and info.warehouse_name:
-        info.buyer_name = info.warehouse_name
+    info.warehouse_name = re.sub(r"[\s,.:]+$", "", info.warehouse_name)
 
     return info
 
@@ -314,7 +226,7 @@ def _extract_shipment_info(text: str) -> ShipmentInfo:
 
     info.vehicle_number = _find_first(
         text,
-        r"(?:vehicle|ehicle|truck|ruck|lorry|orry)\s*(?:no|number|#|reg)[:\s#-]*([A-Za-z0-9\s\-]+?)(?:\n|$|(?:driver|transport|carrier|date))"
+        r"(?:vehicle|truck|lorry)\s*(?:no|number|#|reg)[:\s#-]*([A-Za-z0-9\s\-]+?)(?:\n|$|(?:driver|transport|carrier|date))"
     )
     info.vehicle_number = re.sub(r"[\s]+$", "", info.vehicle_number)
 
@@ -326,7 +238,7 @@ def _extract_shipment_info(text: str) -> ShipmentInfo:
 
     info.transporter_name = _find_first(
         text,
-        r"(?:transporter|ransporter|transport|ransport|carrier|arrier)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$)"
+        r"(?:transporter|transport)\s*(?:name)?[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$)"
     )
     info.transporter_name = re.sub(r"[\s,.:]+$", "", info.transporter_name)
 
@@ -349,17 +261,17 @@ def _extract_financial_info(text: str) -> FinancialInfo:
 
     info.subtotal = _find_amount(
         text,
-        r"(?:sub\s*total|subtotal|ub\s*total|ubtotal)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+        r"(?:sub\s*total|subtotal)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
     )
 
     info.tax = _find_amount(
         text,
-        r"(?:gst|cgst\s*\+\s*sgst|igst|tax|ax|vat|at)\s*(?:\([^)]*\))?\s*(?:amount)?[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+        r"(?:tax|gst|vat|cgst\s*\+\s*sgst|igst)\s*(?:amount)?[:\s]*([₹$€£]?[\d,]+\.?\d*)"
     )
 
     info.total_amount = _find_amount(
         text,
-        r"(?:total\s*amount|otal\s*amount|grand\s*total|rand\s*total|invoice\s*total|nvoice\s*total|net\s*payable|et\s*payable|total\s*value|otal\s*value|total\s*amt|otal\s*amt|amount\s*payable|mount\s*payable)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
+        r"(?:total\s*amount|grand\s*total|net\s*payable|total\s*value|total\s*amt|amount\s*payable)[:\s]*([₹$€£]?[\d,]+\.?\d*)"
     )
 
     return info

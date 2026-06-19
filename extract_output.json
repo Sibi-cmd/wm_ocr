@@ -1,0 +1,310 @@
+{
+  "status": "success",
+  "file_name": "test_invoice.png",
+  "document_type": "invoice",
+  "confidence_score": 0.17,
+  "raw_text": "TAX INVOICE\nnvoice Number. INV-2026-001\nnvoice Date: 11/06/2026\nSupplier. ABC Electronics Pvt Ltd\nSuyer: XYZ Warehouse Solutions\nGSTIN: 29ABCDE1234F1Z5\nSKU\nDescription\nQty Rate Amount\nLAPTOP001 Dell Latitude5450 100 50000 5000000\nMOUSE002 Logitech MX Master2003500700000\nSubtotal: 5700000\nGST (18%): 1026000\notal Amount 6726000\nehicle Number: KA-01-AB-1234\nransporter: BlueDart Express",
+  "ocr_output": [
+    "TAX INVOICE",
+    "nvoice Number. INV-2026-001",
+    "nvoice Date: 11/06/2026",
+    "Supplier. ABC Electronics Pvt Ltd",
+    "Suyer: XYZ Warehouse Solutions",
+    "GSTIN: 29ABCDE1234F1Z5",
+    "SKU",
+    "Description",
+    "Qty Rate Amount",
+    "LAPTOP001 Dell Latitude5450 100 50000 5000000",
+    "MOUSE002 Logitech MX Master2003500700000",
+    "Subtotal: 5700000",
+    "GST (18%): 1026000",
+    "otal Amount 6726000",
+    "ehicle Number: KA-01-AB-1234",
+    "ransporter: BlueDart Express"
+  ],
+  "extracted_data": {
+    "document_info": {
+      "document_number": "INV-2026-001",
+      "document_date": "2026-06-11",
+      "po_number": "",
+      "invoice_number": "INV-2026-001",
+      "delivery_number": "",
+      "grn_number": ""
+    },
+    "party_info": {
+      "supplier_name": "ABC Electronics Pvt Ltd",
+      "supplier_id": "",
+      "buyer_name": "XYZ Warehouse Solutions",
+      "warehouse_name": ""
+    },
+    "products": [
+      {
+        "sku": "LAPTOP001",
+        "product_name": "Dell Latitude5450",
+        "category": "",
+        "quantity": 100.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "unit": "",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": null,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "MOUSE002",
+        "product_name": "Logitech MX Master",
+        "category": "",
+        "quantity": 200.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "unit": "",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": null,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      }
+    ],
+    "shipment_info": {
+      "shipment_id": "",
+      "vehicle_number": "KA-01-AB-1234",
+      "carrier_name": "",
+      "transporter_name": "BlueDart Express",
+      "delivery_date": "2026-06-11"
+    },
+    "financial_info": {
+      "unit_price": "",
+      "subtotal": "5700000",
+      "tax": "1026000",
+      "total_amount": "6726000"
+    },
+    "receipt_info": {
+      "received_quantity": "",
+      "damaged_quantity": "",
+      "accepted_quantity": "",
+      "remarks": ""
+    }
+  },
+  "storage_mapping": {
+    "save_original_json_to": "ocr_documents.extracted_json",
+    "save_raw_text_to": "ocr_documents.raw_text",
+    "create_or_update_products": true,
+    "create_inbound_receipt": true,
+    "create_inbound_items": true,
+    "ready_for_putaway_recommendation": false
+  },
+  "storage_payloads": {
+    "ocr_document_payload": {
+      "file_name": "test_invoice.png",
+      "document_type": "invoice",
+      "confidence_score": 0.17,
+      "raw_text": "TAX INVOICE\nnvoice Number. INV-2026-001\nnvoice Date: 11/06/2026\nSupplier. ABC Electronics Pvt Ltd\nSuyer: XYZ Warehouse Solutions\nGSTIN: 29ABCDE1234F1Z5\nSKU\nDescription\nQty Rate Amount\nLAPTOP001 Dell Latitude5450 100 50000 5000000\nMOUSE002 Logitech MX Master2003500700000\nSubtotal: 5700000\nGST (18%): 1026000\notal Amount 6726000\nehicle Number: KA-01-AB-1234\nransporter: BlueDart Express",
+      "extracted_json": {
+        "document_info": {
+          "document_number": "INV-2026-001",
+          "document_date": "2026-06-11",
+          "po_number": "",
+          "invoice_number": "INV-2026-001",
+          "delivery_number": "",
+          "grn_number": ""
+        },
+        "party_info": {
+          "supplier_name": "ABC Electronics Pvt Ltd",
+          "supplier_id": "",
+          "buyer_name": "XYZ Warehouse Solutions",
+          "warehouse_name": ""
+        },
+        "products": [
+          {
+            "sku": "LAPTOP001",
+            "product_name": "Dell Latitude5450",
+            "category": "",
+            "quantity": 100.0,
+            "ordered_quantity": null,
+            "received_quantity": null,
+            "damaged_quantity": null,
+            "unit": "",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "unit": "cm"
+            },
+            "weight": {
+              "value": null,
+              "unit": "kg"
+            },
+            "batch_number": "",
+            "serial_number": "",
+            "barcode_number": ""
+          },
+          {
+            "sku": "MOUSE002",
+            "product_name": "Logitech MX Master",
+            "category": "",
+            "quantity": 200.0,
+            "ordered_quantity": null,
+            "received_quantity": null,
+            "damaged_quantity": null,
+            "unit": "",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "unit": "cm"
+            },
+            "weight": {
+              "value": null,
+              "unit": "kg"
+            },
+            "batch_number": "",
+            "serial_number": "",
+            "barcode_number": ""
+          }
+        ],
+        "shipment_info": {
+          "shipment_id": "",
+          "vehicle_number": "KA-01-AB-1234",
+          "carrier_name": "",
+          "transporter_name": "BlueDart Express",
+          "delivery_date": "2026-06-11"
+        },
+        "financial_info": {
+          "unit_price": "",
+          "subtotal": "5700000",
+          "tax": "1026000",
+          "total_amount": "6726000"
+        },
+        "receipt_info": {
+          "received_quantity": "",
+          "damaged_quantity": "",
+          "accepted_quantity": "",
+          "remarks": ""
+        }
+      }
+    },
+    "product_payload": [
+      {
+        "sku": "LAPTOP001",
+        "product_name": "Dell Latitude5450",
+        "category": "",
+        "unit": "",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": null,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "MOUSE002",
+        "product_name": "Logitech MX Master",
+        "category": "",
+        "unit": "",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": null,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      }
+    ],
+    "inbound_receipt_payload": {
+      "document_type": "invoice",
+      "document_number": "INV-2026-001",
+      "document_date": "2026-06-11",
+      "po_number": "",
+      "invoice_number": "INV-2026-001",
+      "delivery_number": "",
+      "grn_number": "",
+      "supplier_name": "ABC Electronics Pvt Ltd",
+      "supplier_id": "",
+      "buyer_name": "XYZ Warehouse Solutions",
+      "warehouse_name": "",
+      "received_quantity": "",
+      "damaged_quantity": "",
+      "accepted_quantity": "",
+      "remarks": ""
+    },
+    "inbound_items_payload": [
+      {
+        "sku": "LAPTOP001",
+        "product_name": "Dell Latitude5450",
+        "quantity": 100.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "accepted_quantity": 100.0,
+        "unit": "",
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "MOUSE002",
+        "product_name": "Logitech MX Master",
+        "quantity": 200.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "accepted_quantity": 200.0,
+        "unit": "",
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      }
+    ],
+    "shipment_payload": {
+      "shipment_id": "",
+      "vehicle_number": "KA-01-AB-1234",
+      "carrier_name": "",
+      "transporter_name": "BlueDart Express",
+      "delivery_date": "2026-06-11",
+      "po_number": "",
+      "invoice_number": "INV-2026-001",
+      "supplier_name": "ABC Electronics Pvt Ltd"
+    }
+  },
+  "warnings": [
+    "Missing warehouse name.",
+    "Product row 1: Missing dimensions.",
+    "Product row 1: Missing weight.",
+    "Product row 2: Missing dimensions.",
+    "Product row 2: Missing weight."
+  ],
+  "errors": []
+}

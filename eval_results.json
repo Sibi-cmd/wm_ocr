@@ -1,0 +1,162 @@
+{
+  "ocr_text_score": 93.60613810741688,
+  "header_accuracy": 100.0,
+  "product_accuracy": 50.0,
+  "parser_accuracy_score": 75.0,
+  "overall_extraction_score": 84.30306905370844,
+  "field_comparison": [
+    {
+      "field": "Invoice Number",
+      "expected": "INV-2026-001",
+      "actual": "INV-2026-001",
+      "status": "PASS"
+    },
+    {
+      "field": "Invoice Date",
+      "expected": "2026-06-11",
+      "actual": "2026-06-11",
+      "status": "PASS"
+    },
+    {
+      "field": "Supplier Name",
+      "expected": "ABC Electronics Pvt Ltd",
+      "actual": "ABC Electronics Pvt Ltd",
+      "status": "PASS"
+    },
+    {
+      "field": "Buyer Name",
+      "expected": "XYZ Warehouse Solutions",
+      "actual": "XYZ Warehouse Solutions",
+      "status": "PASS"
+    },
+    {
+      "field": "Warehouse Name",
+      "expected": "",
+      "actual": "",
+      "status": "PASS"
+    },
+    {
+      "field": "PO Number",
+      "expected": "",
+      "actual": "",
+      "status": "PASS"
+    },
+    {
+      "field": "Shipment Reference",
+      "expected": "",
+      "actual": "",
+      "status": "PASS"
+    },
+    {
+      "field": "Subtotal",
+      "expected": "5700000",
+      "actual": "5700000",
+      "status": "PASS"
+    },
+    {
+      "field": "Tax",
+      "expected": "1026000",
+      "actual": "1026000",
+      "status": "PASS"
+    },
+    {
+      "field": "Grand Total",
+      "expected": "6726000",
+      "actual": "6726000",
+      "status": "PASS"
+    },
+    {
+      "field": "Vehicle Number",
+      "expected": "KA-01-AB-1234",
+      "actual": "KA-01-AB-1234",
+      "status": "PASS"
+    },
+    {
+      "field": "Transporter Name",
+      "expected": "BlueDart Express",
+      "actual": "BlueDart Express",
+      "status": "PASS"
+    }
+  ],
+  "product_details": [
+    {
+      "sku": "LAPTOP001",
+      "expected_name": "Dell Latitude 5450",
+      "actual_name": "Dell Latitude5450",
+      "expected_qty": 100.0,
+      "actual_qty": 100.0,
+      "status": "FAIL"
+    },
+    {
+      "sku": "MOUSE002",
+      "expected_name": "Logitech MX Master",
+      "actual_name": "Logitech MX Master",
+      "expected_qty": 200.0,
+      "actual_qty": 200.0,
+      "status": "PASS"
+    }
+  ],
+  "actual_fields": {
+    "invoice_number": "INV-2026-001",
+    "invoice_date": "2026-06-11",
+    "supplier_name": "ABC Electronics Pvt Ltd",
+    "buyer_name": "XYZ Warehouse Solutions",
+    "warehouse_name": "",
+    "po_number": "",
+    "shipment_reference": "",
+    "subtotal": "5700000",
+    "tax": "1026000",
+    "grand_total": "6726000",
+    "vehicle_number": "KA-01-AB-1234",
+    "transporter_name": "BlueDart Express"
+  },
+  "actual_products": [
+    {
+      "sku": "LAPTOP001",
+      "product_name": "Dell Latitude5450",
+      "category": "",
+      "quantity": 100.0,
+      "ordered_quantity": null,
+      "received_quantity": null,
+      "damaged_quantity": null,
+      "unit": "",
+      "dimensions": {
+        "length": null,
+        "width": null,
+        "height": null,
+        "unit": "cm"
+      },
+      "weight": {
+        "value": null,
+        "unit": "kg"
+      },
+      "batch_number": "",
+      "serial_number": "",
+      "barcode_number": ""
+    },
+    {
+      "sku": "MOUSE002",
+      "product_name": "Logitech MX Master",
+      "category": "",
+      "quantity": 200.0,
+      "ordered_quantity": null,
+      "received_quantity": null,
+      "damaged_quantity": null,
+      "unit": "",
+      "dimensions": {
+        "length": null,
+        "width": null,
+        "height": null,
+        "unit": "cm"
+      },
+      "weight": {
+        "value": null,
+        "unit": "kg"
+      },
+      "batch_number": "",
+      "serial_number": "",
+      "barcode_number": ""
+    }
+  ],
+  "raw_text": "TAX INVOICE\nnvoice Number. INV-2026-001\nnvoice Date: 11/06/2026\nSupplier. ABC Electronics Pvt Ltd\nSuyer: XYZ Warehouse Solutions\nGSTIN: 29ABCDE1234F1Z5\nSKU\nDescription\nQty Rate Amount\nLAPTOP001 Dell Latitude5450 100 50000 5000000\nMOUSE002 Logitech MX Master2003500700000\nSubtotal: 5700000\nGST (18%): 1026000\notal Amount 6726000\nehicle Number: KA-01-AB-1234\nransporter: BlueDart Express"
+}
