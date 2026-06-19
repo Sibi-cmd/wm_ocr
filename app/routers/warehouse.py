@@ -31,7 +31,7 @@ from app.schemas import (
     BatchResponse,
     SingleDocumentResponse,
 )
-from app.services.classifier import classify_document
+from app.services.classifier import calculate_extraction_confidence, classify_document
 from app.services.field_extractor import extract_fields
 from app.services.ocr_engine import run_ocr
 from app.services.storage_mapper import build_storage_mapping, build_storage_payloads
@@ -71,13 +71,20 @@ def _process_single_file(file: UploadFile) -> SingleDocumentResponse:
             return response
 
         # --- Step 3: Classify document ---
-        doc_type, confidence = classify_document(raw_text)
+        doc_type, classification_confidence = classify_document(raw_text)
         response.document_type = doc_type
-        response.confidence_score = confidence
+        response.document_classification_confidence = classification_confidence
 
         # --- Step 4 & 5: Extract fields + products ---
         extracted_data = extract_fields(raw_text, ocr_lines, doc_type)
         response.extracted_data = extracted_data
+
+        # --- Step 5.5: Calculate extraction confidence ---
+        extraction_confidence = calculate_extraction_confidence(
+            extracted_data, doc_type, classification_confidence
+        )
+        response.extraction_confidence = extraction_confidence
+        response.confidence_score = extraction_confidence
 
         # --- Step 6: Validate ---
         warnings, errors = validate_extracted_data(extracted_data, doc_type)
@@ -91,7 +98,9 @@ def _process_single_file(file: UploadFile) -> SingleDocumentResponse:
             raw_text=raw_text,
             document_type=doc_type,
             file_name=file.filename or "unknown",
-            confidence_score=confidence,
+            confidence_score=extraction_confidence,
+            document_classification_confidence=classification_confidence,
+            extraction_confidence=extraction_confidence,
         )
 
         # Status is "success" even if there are warnings, but "failed" if
@@ -153,6 +162,8 @@ def extract_batch(files: List[UploadFile] = File(...)):
             status=result.status,
             document_type=result.document_type,
             confidence_score=result.confidence_score,
+            document_classification_confidence=result.document_classification_confidence,
+            extraction_confidence=result.extraction_confidence,
             extracted_data=result.extracted_data,
             storage_mapping=result.storage_mapping,
             storage_payloads=result.storage_payloads,

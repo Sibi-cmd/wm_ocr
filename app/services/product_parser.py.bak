@@ -52,31 +52,10 @@ def _is_header_line(line: str) -> bool:
 # Per-Line Value Extraction
 # ---------------------------------------------------------------------------
 
-def _clean_product_value(val: str) -> str:
-    if not val:
-        return ""
-    # Stop at any of the product-related field keywords
-    stop_kws = [
-        r"sku", r"product\s*name", r"item\s*name", r"description", r"category", 
-        r"classification", r"quantity", r"qty", r"unit\s*price", r"rate", 
-        r"total\s*price", r"amount", r"length", r"width", r"height", r"weight", 
-        r"storage\s*type", r"fragile", r"stackable"
-    ]
-    pattern = r"(?:\b|^)(?:" + "|".join(stop_kws) + r")(?:\b|$|:)"
-    parts = re.split(pattern, val, flags=re.IGNORECASE)
-    cleaned = parts[0].strip()
-    cleaned = re.sub(r"^[:.\s#\-]+", "", cleaned)
-    cleaned = re.sub(r"[\s,.:]+$", "", cleaned).strip()
-    return cleaned
-
-
 def _extract_labelled(text: str, pattern: str) -> str:
     """Extract a value following a label pattern (case-insensitive)."""
     match = re.search(pattern, text, re.IGNORECASE)
-    if match:
-        val = match.group(1).strip()
-        return _clean_product_value(val)
-    return ""
+    return match.group(1).strip() if match else ""
 
 
 def _try_parse_number(text: str) -> Optional[float]:
@@ -97,8 +76,8 @@ _SERIAL_PATTERN = r"(?:serial\s*(?:no|number|#)|sr\s*no|s/n)[:\s#-]+([A-Za-z0-9_
 _BARCODE_PATTERN = r"(?:barcode|ean|upc|gtin)[:\s#-]+(\d[\d\s-]+\d)"
 _QUANTITY_PATTERN = r"(?:qty|quantity)[:\s#-]+(\d+(?:\.\d+)?)"
 
-_PRODUCT_NAME_PATTERN = r"\b(?:product\s*name|name|description|item\s*name|material\s*description)[:\s]+(.+?)(?:\n|$)"
-_CATEGORY_PATTERN = r"\b(?:category)[:\s]+(.+?)(?:\n|$)"
+_PRODUCT_NAME_PATTERN = r"\b(?:product\s*name|name|description|item\s*name|material\s*description)[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$)"
+_CATEGORY_PATTERN = r"(?:category)[:\s]+([A-Za-z0-9\s&.,\-']+?)(?:\n|$)"
 
 
 def _split_into_blocks(text: str) -> list[str]:
@@ -130,80 +109,56 @@ def _split_into_blocks(text: str) -> list[str]:
 # Tabular Row Parsing
 # ---------------------------------------------------------------------------
 
-def _parse_tabular_row(line: str) -> Optional[ProductItem]:
-    """Attempt to extract product data from a single table row using SKU as anchor."""
-    tokens = line.strip().split()
+def _parse_table_row(line: str) -> Optional[ProductItem]:
+    """Attempt to extract product data from a single table row.
+
+    Heuristic: split the line on two-or-more whitespace characters and
+    try to map tokens to known column types.
+    """
+    # Split on 2+ spaces or tab — typical OCR table column separator
+    tokens = re.split(r"\s{2,}|\t", line.strip())
+
     if len(tokens) < 2:
         return None
 
-    # Pattern approved by user
-    SKU_PATTERN = re.compile(
-        r'^[A-Z]+[A-Z0-9_-]*\d+$',
-        re.IGNORECASE
-    )
+    product = ProductItem()
 
-    # Explicitly prevent header rows from being parsed as products
-    HEADER_KEYWORDS = {"sku", "description", "qty", "quantity", "rate", "price", "amount", "total", "unit"}
-    if tokens[0].lower() in HEADER_KEYWORDS:
+    # Try to identify numeric vs text tokens
+    numeric_tokens: list[float] = []
+    text_tokens: list[str] = []
+
+    for token in tokens:
+        num = _try_parse_number(token)
+        if num is not None:
+            numeric_tokens.append(num)
+        else:
+            text_tokens.append(token)
+
+    # Need at least one text token (product name/sku) and one number (qty)
+    if not text_tokens or not numeric_tokens:
         return None
 
-    if not SKU_PATTERN.match(tokens[0]):
-        return None
+    # First text token that looks like a code → SKU; otherwise → product_name
+    for t in text_tokens:
+        if re.match(r"^[A-Z0-9_\-/]{3,}$", t, re.IGNORECASE):
+            if not product.sku:
+                product.sku = t
+            else:
+                product.product_name = t
+        else:
+            if not product.product_name:
+                product.product_name = t
+            elif not product.sku:
+                product.sku = t
 
-    sku = tokens[0]
-    rem_tokens = tokens[1:]
+    # First numeric token → quantity
+    if numeric_tokens:
+        product.quantity = numeric_tokens[0]
+    if len(numeric_tokens) > 1:
+        product.ordered_quantity = numeric_tokens[0]
+        product.quantity = numeric_tokens[1]
 
-    def clean_num_str(s):
-        return re.sub(r'[^\d.]', '', s)
-
-    def try_split_digits(s: str) -> Optional[tuple[float, float, float]]:
-        n = len(s)
-        if n < 3:
-            return None
-        for i in range(1, n - 1):
-            for j in range(i + 1, n):
-                s1 = s[:i]
-                s2 = s[i:j]
-                s3 = s[j:]
-                try:
-                    v1 = float(s1)
-                    v2 = float(s2)
-                    v3 = float(s3)
-                    # Verify mathematical constraint: quantity * unit_price = total_price
-                    if v1 > 0 and v2 > 0 and v3 > 0 and abs(v1 * v2 - v3) < 1e-2:
-                        return (v1, v2, v3)
-                except ValueError:
-                    continue
-        return None
-
-    # Case 1: Separate tokens at the end
-    if len(rem_tokens) >= 3:
-        t1, t2, t3 = rem_tokens[-3], rem_tokens[-2], rem_tokens[-1]
-        c1, c2, c3 = clean_num_str(t1), clean_num_str(t2), clean_num_str(t3)
-        try:
-            v1 = float(c1)
-            v2 = float(c2)
-            v3 = float(c3)
-            # Verify mathematical constraint: quantity * unit_price = total_price
-            if v1 > 0 and v2 > 0 and v3 > 0 and abs(v1 * v2 - v3) < 1e-2:
-                product_name = " ".join(rem_tokens[:-3])
-                return ProductItem(sku=sku, product_name=product_name, quantity=v1, unit_price=v2, total_price=v3)
-        except ValueError:
-            pass
-
-    # Case 2: Merged token at the end
-    last_token = rem_tokens[-1]
-    match = re.search(r'(\d+)$', last_token)
-    if match:
-        digits_str = match.group(1)
-        res = try_split_digits(digits_str)
-        if res:
-            v1, v2, v3 = res
-            text_part = last_token[:-len(digits_str)]
-            product_name = " ".join(rem_tokens[:-1] + [text_part]).strip()
-            return ProductItem(sku=sku, product_name=product_name, quantity=v1, unit_price=v2, total_price=v3)
-
-    return None
+    return product
 
 
 # ---------------------------------------------------------------------------
@@ -231,74 +186,6 @@ def _extract_labelled_products(raw_text: str) -> list[ProductItem]:
         dims = parse_dimensions(block)
         weight = parse_weight(block)
 
-        # Positional Fallback for unlabelled product name and category
-        lines = [line.strip() for line in block.splitlines() if line.strip()]
-        sku_idx = -1
-        for idx, line in enumerate(lines):
-            if sku and sku in line:
-                sku_idx = idx
-                break
-            if re.search(r"\b(?:sku|item\s*code|material\s*code|product\s*code|part\s*no)\b", line, re.IGNORECASE):
-                sku_idx = idx
-                break
-
-        INVALID_NAMES = {"summary", "payment terms", "authorized signature"}
-
-        if sku_idx != -1:
-            unlabelled_lines = []
-            for line in lines[sku_idx + 1:]:
-                is_labelled = False
-                # Check SKU pattern
-                if re.search(_SKU_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Product Name label pattern
-                elif re.search(_PRODUCT_NAME_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Category label pattern
-                elif re.search(_CATEGORY_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Quantity pattern
-                elif re.search(_QUANTITY_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Batch pattern
-                elif re.search(_BATCH_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Serial pattern
-                elif re.search(_SERIAL_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Barcode pattern
-                elif re.search(_BARCODE_PATTERN, line, re.IGNORECASE):
-                    is_labelled = True
-                # Check Dimensions
-                elif parse_dimensions(line) is not None:
-                    is_labelled = True
-                # Check Weight
-                elif parse_weight(line) is not None:
-                    is_labelled = True
-                # Check Product boundary label
-                elif re.search(r"^Product\s*\d+", line, re.IGNORECASE):
-                    is_labelled = True
-                # Check general colon label
-                elif ":" in line:
-                    is_labelled = True
-                # Check invalid names
-                elif line.lower().strip() in INVALID_NAMES:
-                    is_labelled = True
-
-                if not is_labelled:
-                    unlabelled_lines.append(line)
-
-            if not product_name and len(unlabelled_lines) >= 1:
-                product_name = unlabelled_lines[0]
-            if not category and len(unlabelled_lines) >= 2:
-                category = unlabelled_lines[1]
-
-        # Blacklist check for labelled extractions
-        if product_name and product_name.lower().strip() in INVALID_NAMES:
-            product_name = ""
-        if category and category.lower().strip() in INVALID_NAMES:
-            category = ""
-
         # Only create a product if we found something useful
         if any([sku, batch, serial, barcode, qty is not None, product_name, category]):
             product = ProductItem(
@@ -324,20 +211,36 @@ def _extract_labelled_products(raw_text: str) -> list[ProductItem]:
 def parse_products(raw_text: str, ocr_lines: list[str]) -> list[ProductItem]:
     """Parse product rows from the OCR output.
 
-    Uses SKU pattern as an anchor for tabular rows. Falls back to labelled
-    key-value extraction if no tabular rows are parsed.
+    First tries to detect a table structure.  Falls back to labelled
+    key-value extraction when no table header is found.
     """
     if not ocr_lines:
         return _extract_labelled_products(raw_text)
 
     products: list[ProductItem] = []
+    header_found = False
+    lines_after_header = 0
 
     for line in ocr_lines:
+        if not header_found:
+            if _is_header_line(line):
+                header_found = True
+            continue
+
+        # Skip separator lines (dashes, equals, etc.)
+        if re.match(r"^[\s\-=_|+]+$", line):
+            continue
+
+        # Stop after reasonable number of rows to avoid parsing footers
+        lines_after_header += 1
+        if lines_after_header > 100:
+            break
+
         # Skip if line is too short to be a product row
         if len(line.strip()) < 5:
             continue
 
-        product = _parse_tabular_row(line)
+        product = _parse_table_row(line)
         if product:
             products.append(product)
 

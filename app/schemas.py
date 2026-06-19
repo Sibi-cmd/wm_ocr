@@ -142,6 +142,8 @@ class SingleDocumentResponse(BaseModel):
     file_name: str = ""
     document_type: str = "unknown"
     confidence_score: float = 0.0
+    document_classification_confidence: float = 0.0
+    extraction_confidence: float = 0.0
     raw_text: str = ""
     ocr_output: list[str] = Field(default_factory=list)
     extracted_data: ExtractedData = Field(default_factory=ExtractedData)
@@ -157,6 +159,8 @@ class BatchFileResult(BaseModel):
     status: str = "success"
     document_type: str = "unknown"
     confidence_score: float = 0.0
+    document_classification_confidence: float = 0.0
+    extraction_confidence: float = 0.0
     extracted_data: ExtractedData = Field(default_factory=ExtractedData)
     storage_mapping: StorageMapping = Field(default_factory=StorageMapping)
     storage_payloads: StoragePayloads = Field(default_factory=StoragePayloads)

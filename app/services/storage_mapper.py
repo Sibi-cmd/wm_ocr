@@ -45,6 +45,8 @@ def build_storage_payloads(
     document_type: str,
     file_name: str,
     confidence_score: float,
+    document_classification_confidence: float = 0.0,
+    extraction_confidence: float = 0.0,
 ) -> StoragePayloads:
     """Build all 5 Django-ready payloads from the extracted data.
 
@@ -60,6 +62,8 @@ def build_storage_payloads(
         "file_name": file_name,
         "document_type": document_type,
         "confidence_score": confidence_score,
+        "document_classification_confidence": document_classification_confidence,
+        "extraction_confidence": extraction_confidence,
         "raw_text": raw_text,
         "extracted_json": extracted_data.model_dump(),
     }

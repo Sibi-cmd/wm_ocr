@@ -1,0 +1,397 @@
+{
+  "status": "success",
+  "file_name": "Invoice INV-2026-1001.pdf",
+  "document_type": "invoice",
+  "confidence_score": 0.95,
+  "document_classification_confidence": 0.28,
+  "extraction_confidence": 0.95,
+  "raw_text": "ABC ELECTRONICS PRIVATE LIMITED\nTAX INVOICE\nInvoice Number: INV-2026-1001 Invoice Date: 2026-06-17\nPurchase Order Number: PO-2026-5001 Shipment Reference: SHIP-2026-7001\nSupplier Information\nSupplier Name: ABC Electronics Private Limited Supplier ID: SUP-1001 GSTIN: 33ABCDE1234F1Z5\nAddress: 45 Industrial Estate, Guindy, Chennai, Tamil Nadu, India\nBuyer Information\nWarehouse Name: Main Warehouse Warehouse Code: WH001 Delivery Zone: Zone A Address: Kochi,\nKerala, India\nPayment Terms\nNet 30 Days\nPRODUCT DETAILS\nProduct 1 SKU: SCN-1001 Product Name: Wireless Barcode Scanner Category: Electronics Classification:\nStandard Quantity: 10 Unit Price: 2500 Total Price: 25000 Length: 25 cm Width: 12 cm Height: 8 cm\nWeight: 1.2 kg Storage Type: Dry Storage Fragile: Yes Stackable: No\nProduct 2 SKU: RFID-2001 Product Name: RFID Reader Category: Electronics Classification: Industrial\nEquipment Quantity: 5 Unit Price: 8000 Total Price: 40000 Length: 40 cm Width: 25 cm Height: 15 cm\nWeight: 3.5 kg Storage Type: Dry Storage Fragile: Yes Stackable: Yes\nProduct 3 SKU: PRN-3001 Product Name: Thermal Label Printer Category: Warehouse Equipment\nClassification: Printer Quantity: 2 Unit Price: 12000 Total Price: 24000 Length: 50 cm Width: 30 cm\nHeight: 25 cm Weight: 8 kg Storage Type: Dry Storage Fragile: No Stackable: No\nSUMMARY\nTotal Units: 17 Subtotal: 89000 Tax (18% GST): 16020 Grand Total: 105020\nRemarks: Goods received in good condition.\nAuthorized Signature ABC Electronics Private Limited\n1",
+  "ocr_output": [
+    "ABC ELECTRONICS PRIVATE LIMITED",
+    "TAX INVOICE",
+    "Invoice Number: INV-2026-1001 Invoice Date: 2026-06-17",
+    "Purchase Order Number: PO-2026-5001 Shipment Reference: SHIP-2026-7001",
+    "Supplier Information",
+    "Supplier Name: ABC Electronics Private Limited Supplier ID: SUP-1001 GSTIN: 33ABCDE1234F1Z5",
+    "Address: 45 Industrial Estate, Guindy, Chennai, Tamil Nadu, India",
+    "Buyer Information",
+    "Warehouse Name: Main Warehouse Warehouse Code: WH001 Delivery Zone: Zone A Address: Kochi,",
+    "Kerala, India",
+    "Payment Terms",
+    "Net 30 Days",
+    "PRODUCT DETAILS",
+    "Product 1 SKU: SCN-1001 Product Name: Wireless Barcode Scanner Category: Electronics Classification:",
+    "Standard Quantity: 10 Unit Price: 2500 Total Price: 25000 Length: 25 cm Width: 12 cm Height: 8 cm",
+    "Weight: 1.2 kg Storage Type: Dry Storage Fragile: Yes Stackable: No",
+    "Product 2 SKU: RFID-2001 Product Name: RFID Reader Category: Electronics Classification: Industrial",
+    "Equipment Quantity: 5 Unit Price: 8000 Total Price: 40000 Length: 40 cm Width: 25 cm Height: 15 cm",
+    "Weight: 3.5 kg Storage Type: Dry Storage Fragile: Yes Stackable: Yes",
+    "Product 3 SKU: PRN-3001 Product Name: Thermal Label Printer Category: Warehouse Equipment",
+    "Classification: Printer Quantity: 2 Unit Price: 12000 Total Price: 24000 Length: 50 cm Width: 30 cm",
+    "Height: 25 cm Weight: 8 kg Storage Type: Dry Storage Fragile: No Stackable: No",
+    "SUMMARY",
+    "Total Units: 17 Subtotal: 89000 Tax (18% GST): 16020 Grand Total: 105020",
+    "Remarks: Goods received in good condition.",
+    "Authorized Signature ABC Electronics Private Limited",
+    "1"
+  ],
+  "extracted_data": {
+    "document_info": {
+      "document_number": "INV-2026-1001",
+      "document_date": "2026-06-17",
+      "po_number": "PO-2026-5001",
+      "invoice_number": "INV-2026-1001",
+      "delivery_number": "",
+      "grn_number": ""
+    },
+    "party_info": {
+      "supplier_name": "ABC Electronics Private Limited",
+      "supplier_id": "SUP-1001",
+      "buyer_name": "Main Warehouse",
+      "warehouse_name": "Main Warehouse"
+    },
+    "products": [
+      {
+        "sku": "SCN-1001",
+        "product_name": "Wireless Barcode Scanner",
+        "category": "Electronics",
+        "quantity": 10.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "unit": "",
+        "dimensions": {
+          "length": 25.0,
+          "width": 12.0,
+          "height": 8.0,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": 1.2,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "RFID-2001",
+        "product_name": "RFID Reader",
+        "category": "Electronics",
+        "quantity": 5.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "unit": "",
+        "dimensions": {
+          "length": 40.0,
+          "width": 25.0,
+          "height": 15.0,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": 3.5,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "PRN-3001",
+        "product_name": "Thermal Label Printer",
+        "category": "Warehouse Equipment",
+        "quantity": 2.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "unit": "",
+        "dimensions": {
+          "length": 50.0,
+          "width": 30.0,
+          "height": 25.0,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": 8.0,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      }
+    ],
+    "shipment_info": {
+      "shipment_id": "",
+      "vehicle_number": "",
+      "carrier_name": "",
+      "transporter_name": "",
+      "delivery_date": "2026-06-17"
+    },
+    "financial_info": {
+      "unit_price": "2500",
+      "subtotal": "89000",
+      "tax": "16020",
+      "total_amount": "105020"
+    },
+    "receipt_info": {
+      "received_quantity": "",
+      "damaged_quantity": "",
+      "accepted_quantity": "",
+      "remarks": "Goods received in good condition."
+    }
+  },
+  "storage_mapping": {
+    "save_original_json_to": "ocr_documents.extracted_json",
+    "save_raw_text_to": "ocr_documents.raw_text",
+    "create_or_update_products": true,
+    "create_inbound_receipt": true,
+    "create_inbound_items": true,
+    "ready_for_putaway_recommendation": false
+  },
+  "storage_payloads": {
+    "ocr_document_payload": {
+      "file_name": "Invoice INV-2026-1001.pdf",
+      "document_type": "invoice",
+      "confidence_score": 0.95,
+      "document_classification_confidence": 0.28,
+      "extraction_confidence": 0.95,
+      "raw_text": "ABC ELECTRONICS PRIVATE LIMITED\nTAX INVOICE\nInvoice Number: INV-2026-1001 Invoice Date: 2026-06-17\nPurchase Order Number: PO-2026-5001 Shipment Reference: SHIP-2026-7001\nSupplier Information\nSupplier Name: ABC Electronics Private Limited Supplier ID: SUP-1001 GSTIN: 33ABCDE1234F1Z5\nAddress: 45 Industrial Estate, Guindy, Chennai, Tamil Nadu, India\nBuyer Information\nWarehouse Name: Main Warehouse Warehouse Code: WH001 Delivery Zone: Zone A Address: Kochi,\nKerala, India\nPayment Terms\nNet 30 Days\nPRODUCT DETAILS\nProduct 1 SKU: SCN-1001 Product Name: Wireless Barcode Scanner Category: Electronics Classification:\nStandard Quantity: 10 Unit Price: 2500 Total Price: 25000 Length: 25 cm Width: 12 cm Height: 8 cm\nWeight: 1.2 kg Storage Type: Dry Storage Fragile: Yes Stackable: No\nProduct 2 SKU: RFID-2001 Product Name: RFID Reader Category: Electronics Classification: Industrial\nEquipment Quantity: 5 Unit Price: 8000 Total Price: 40000 Length: 40 cm Width: 25 cm Height: 15 cm\nWeight: 3.5 kg Storage Type: Dry Storage Fragile: Yes Stackable: Yes\nProduct 3 SKU: PRN-3001 Product Name: Thermal Label Printer Category: Warehouse Equipment\nClassification: Printer Quantity: 2 Unit Price: 12000 Total Price: 24000 Length: 50 cm Width: 30 cm\nHeight: 25 cm Weight: 8 kg Storage Type: Dry Storage Fragile: No Stackable: No\nSUMMARY\nTotal Units: 17 Subtotal: 89000 Tax (18% GST): 16020 Grand Total: 105020\nRemarks: Goods received in good condition.\nAuthorized Signature ABC Electronics Private Limited\n1",
+      "extracted_json": {
+        "document_info": {
+          "document_number": "INV-2026-1001",
+          "document_date": "2026-06-17",
+          "po_number": "PO-2026-5001",
+          "invoice_number": "INV-2026-1001",
+          "delivery_number": "",
+          "grn_number": ""
+        },
+        "party_info": {
+          "supplier_name": "ABC Electronics Private Limited",
+          "supplier_id": "SUP-1001",
+          "buyer_name": "Main Warehouse",
+          "warehouse_name": "Main Warehouse"
+        },
+        "products": [
+          {
+            "sku": "SCN-1001",
+            "product_name": "Wireless Barcode Scanner",
+            "category": "Electronics",
+            "quantity": 10.0,
+            "ordered_quantity": null,
+            "received_quantity": null,
+            "damaged_quantity": null,
+            "unit": "",
+            "dimensions": {
+              "length": 25.0,
+              "width": 12.0,
+              "height": 8.0,
+              "unit": "cm"
+            },
+            "weight": {
+              "value": 1.2,
+              "unit": "kg"
+            },
+            "batch_number": "",
+            "serial_number": "",
+            "barcode_number": ""
+          },
+          {
+            "sku": "RFID-2001",
+            "product_name": "RFID Reader",
+            "category": "Electronics",
+            "quantity": 5.0,
+            "ordered_quantity": null,
+            "received_quantity": null,
+            "damaged_quantity": null,
+            "unit": "",
+            "dimensions": {
+              "length": 40.0,
+              "width": 25.0,
+              "height": 15.0,
+              "unit": "cm"
+            },
+            "weight": {
+              "value": 3.5,
+              "unit": "kg"
+            },
+            "batch_number": "",
+            "serial_number": "",
+            "barcode_number": ""
+          },
+          {
+            "sku": "PRN-3001",
+            "product_name": "Thermal Label Printer",
+            "category": "Warehouse Equipment",
+            "quantity": 2.0,
+            "ordered_quantity": null,
+            "received_quantity": null,
+            "damaged_quantity": null,
+            "unit": "",
+            "dimensions": {
+              "length": 50.0,
+              "width": 30.0,
+              "height": 25.0,
+              "unit": "cm"
+            },
+            "weight": {
+              "value": 8.0,
+              "unit": "kg"
+            },
+            "batch_number": "",
+            "serial_number": "",
+            "barcode_number": ""
+          }
+        ],
+        "shipment_info": {
+          "shipment_id": "",
+          "vehicle_number": "",
+          "carrier_name": "",
+          "transporter_name": "",
+          "delivery_date": "2026-06-17"
+        },
+        "financial_info": {
+          "unit_price": "2500",
+          "subtotal": "89000",
+          "tax": "16020",
+          "total_amount": "105020"
+        },
+        "receipt_info": {
+          "received_quantity": "",
+          "damaged_quantity": "",
+          "accepted_quantity": "",
+          "remarks": "Goods received in good condition."
+        }
+      }
+    },
+    "product_payload": [
+      {
+        "sku": "SCN-1001",
+        "product_name": "Wireless Barcode Scanner",
+        "category": "Electronics",
+        "unit": "",
+        "dimensions": {
+          "length": 25.0,
+          "width": 12.0,
+          "height": 8.0,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": 1.2,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "RFID-2001",
+        "product_name": "RFID Reader",
+        "category": "Electronics",
+        "unit": "",
+        "dimensions": {
+          "length": 40.0,
+          "width": 25.0,
+          "height": 15.0,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": 3.5,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "PRN-3001",
+        "product_name": "Thermal Label Printer",
+        "category": "Warehouse Equipment",
+        "unit": "",
+        "dimensions": {
+          "length": 50.0,
+          "width": 30.0,
+          "height": 25.0,
+          "unit": "cm"
+        },
+        "weight": {
+          "value": 8.0,
+          "unit": "kg"
+        },
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      }
+    ],
+    "inbound_receipt_payload": {
+      "document_type": "invoice",
+      "document_number": "INV-2026-1001",
+      "document_date": "2026-06-17",
+      "po_number": "PO-2026-5001",
+      "invoice_number": "INV-2026-1001",
+      "delivery_number": "",
+      "grn_number": "",
+      "supplier_name": "ABC Electronics Private Limited",
+      "supplier_id": "SUP-1001",
+      "buyer_name": "Main Warehouse",
+      "warehouse_name": "Main Warehouse",
+      "received_quantity": "",
+      "damaged_quantity": "",
+      "accepted_quantity": "",
+      "remarks": "Goods received in good condition."
+    },
+    "inbound_items_payload": [
+      {
+        "sku": "SCN-1001",
+        "product_name": "Wireless Barcode Scanner",
+        "quantity": 10.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "accepted_quantity": 10.0,
+        "unit": "",
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "RFID-2001",
+        "product_name": "RFID Reader",
+        "quantity": 5.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "accepted_quantity": 5.0,
+        "unit": "",
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      },
+      {
+        "sku": "PRN-3001",
+        "product_name": "Thermal Label Printer",
+        "quantity": 2.0,
+        "ordered_quantity": null,
+        "received_quantity": null,
+        "damaged_quantity": null,
+        "accepted_quantity": 2.0,
+        "unit": "",
+        "batch_number": "",
+        "serial_number": "",
+        "barcode_number": ""
+      }
+    ],
+    "shipment_payload": {
+      "shipment_id": "",
+      "vehicle_number": "",
+      "carrier_name": "",
+      "transporter_name": "",
+      "delivery_date": "2026-06-17",
+      "po_number": "PO-2026-5001",
+      "invoice_number": "INV-2026-1001",
+      "supplier_name": "ABC Electronics Private Limited"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
