@@ -23,7 +23,10 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, BackgroundTasks, Depends
+from sqlalchemy.orm import Session
+
+from app.database import get_db
 
 from app.config import MAX_BATCH_FILES
 from app.schemas import (
@@ -36,6 +39,7 @@ from app.services.field_extractor import extract_fields
 from app.services.ocr_engine import run_ocr
 from app.services.storage_mapper import build_storage_mapping, build_storage_payloads
 from app.services.validator import validate_extracted_data
+from app.services.db_storage import store_extracted_data_background
 from app.utils.file_utils import validate_file
 
 router = APIRouter(prefix="/api/v1/ocr", tags=["Warehouse OCR"])
@@ -45,7 +49,7 @@ router = APIRouter(prefix="/api/v1/ocr", tags=["Warehouse OCR"])
 # Internal — process a single file through the full pipeline
 # ---------------------------------------------------------------------------
 
-def _process_single_file(file: UploadFile) -> SingleDocumentResponse:
+def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db: Session) -> SingleDocumentResponse:
     """Run the complete OCR pipeline on one uploaded file.
 
     Returns a fully populated SingleDocumentResponse (never raises).
@@ -112,6 +116,19 @@ def _process_single_file(file: UploadFile) -> SingleDocumentResponse:
         response.status = "failed"
         response.errors.append(f"Processing error: {exc}")
 
+    # --- Step 8: Queue Background DB Storage ---
+    if response.status != "failed" and getattr(response, "extracted_data", None):
+        background_tasks.add_task(
+            store_extracted_data_background,
+            db,
+            response.extracted_data,
+            response.raw_text,
+            response.document_type,
+            response.file_name,
+            response.confidence_score,
+            response.status
+        )
+
     return response
 
 
@@ -120,18 +137,26 @@ def _process_single_file(file: UploadFile) -> SingleDocumentResponse:
 # ---------------------------------------------------------------------------
 
 @router.post("/extract", response_model=SingleDocumentResponse)
-def extract_single(file: UploadFile = File(...)):
+def extract_single(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db)
+):
     """Upload and process a single warehouse document.
 
     Accepts PDF, PNG, JPG, or JPEG.  Returns structured extraction
     results with document classification, field extraction, product
     rows, validation warnings, and Django-ready storage payloads.
     """
-    return _process_single_file(file)
+    return _process_single_file(file, background_tasks, db)
 
 
 @router.post("/extract-batch", response_model=BatchResponse)
-def extract_batch(files: List[UploadFile] = File(...)):
+def extract_batch(
+    files: List[UploadFile] = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db)
+):
     """Upload and process multiple warehouse documents at once.
 
     Each file is processed independently — one failure does **not**
@@ -155,7 +180,7 @@ def extract_batch(files: List[UploadFile] = File(...)):
         return batch
 
     for file in files:
-        result = _process_single_file(file)
+        result = _process_single_file(file, background_tasks, db)
 
         file_result = BatchFileResult(
             file_name=result.file_name,
