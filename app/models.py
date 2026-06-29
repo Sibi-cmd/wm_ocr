@@ -24,6 +24,20 @@ class OCRDocument(Base):
     processing_status = Column(String(50), nullable=False)
     rejection_reason = Column(Text, nullable=True)
 
+    # WMS Metadata fields (managed by Django migrations, must be declared here for
+    # SQLAlchemy INSERT compatibility with the shared ocr_documents table)
+    warehouse_id = Column(String(100), nullable=True)
+    sku = Column(String(100), nullable=True)
+    product_id = Column(String(100), nullable=True)
+    category = Column(String(100), nullable=True)
+    zone = Column(String(100), nullable=True)
+    rack = Column(String(100), nullable=True)
+    shelf = Column(String(100), nullable=True)
+    bin = Column(String(100), nullable=True)
+    chunk_count = Column(Integer, nullable=False, default=0, server_default="0")
+    rag_status = Column(String(50), nullable=False, default="PENDING", server_default="PENDING")
+    rag_error_message = Column(Text, nullable=True)
+
 
 class Product(Base):
     __tablename__ = "products"

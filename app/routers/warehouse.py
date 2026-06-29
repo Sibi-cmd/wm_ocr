@@ -21,6 +21,7 @@ Processing Pipeline (per file)
 
 from __future__ import annotations
 
+import logging
 from typing import List
 
 from fastapi import APIRouter, File, UploadFile, BackgroundTasks, Depends
@@ -42,6 +43,8 @@ from app.services.validator import validate_extracted_data
 from app.services.db_storage import store_extracted_data_background
 from app.utils.file_utils import validate_file
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1/ocr", tags=["Warehouse OCR"])
 
 
@@ -54,6 +57,7 @@ def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db
 
     Returns a fully populated SingleDocumentResponse (never raises).
     """
+    logger.info("Received request to process file: %s", file.filename)
     response = SingleDocumentResponse(file_name=file.filename or "unknown")
 
     # --- Step 1: Validate file ---
@@ -61,10 +65,12 @@ def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db
     if validation_errors:
         response.status = "failed"
         response.errors = validation_errors
+        logger.warning("File validation failed for %s: %s", file.filename, validation_errors)
         return response
 
     try:
         # --- Step 2: Run OCR ---
+        logger.info("Executing OCR text extraction for %s", file.filename)
         raw_text, ocr_lines = run_ocr(file_bytes, file.filename or "")
         response.raw_text = raw_text
         response.ocr_output = ocr_lines
@@ -72,14 +78,18 @@ def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db
         if not raw_text.strip():
             response.status = "failed"
             response.errors.append("OCR produced no text from this file.")
+            logger.warning("OCR returned empty text stream for file: %s", file.filename)
             return response
 
         # --- Step 3: Classify document ---
+        logger.info("Classifying document type for %s", file.filename)
         doc_type, classification_confidence = classify_document(raw_text)
         response.document_type = doc_type
         response.document_classification_confidence = classification_confidence
+        logger.info("Document classified as '%s' (confidence: %.2f)", doc_type, classification_confidence)
 
         # --- Step 4 & 5: Extract fields + products ---
+        logger.info("Extracting fields and tabular product data for %s", file.filename)
         extracted_data = extract_fields(raw_text, ocr_lines, doc_type)
         response.extracted_data = extracted_data
 
@@ -91,11 +101,17 @@ def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db
         response.confidence_score = extraction_confidence
 
         # --- Step 6: Validate ---
+        logger.info("Running business validation checks on extracted data for %s", file.filename)
         warnings, errors = validate_extracted_data(extracted_data, doc_type)
         response.warnings = warnings
         response.errors = errors
+        if warnings:
+            logger.info("Validation warnings found for %s: %s", file.filename, warnings)
+        if errors:
+            logger.warning("Validation errors found for %s: %s", file.filename, errors)
 
         # --- Step 7: Build storage payloads ---
+        logger.info("Generating Django-ready storage payloads for %s", file.filename)
         response.storage_mapping = build_storage_mapping(doc_type)
         response.storage_payloads = build_storage_payloads(
             extracted_data=extracted_data,
@@ -111,13 +127,17 @@ def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db
         # there are critical errors
         if errors:
             response.status = "partial"
+        else:
+            response.status = "success"
 
     except Exception as exc:
         response.status = "failed"
         response.errors.append(f"Processing error: {exc}")
+        logger.error("Internal processing error for file %s: %s", file.filename, exc, exc_info=True)
 
     # --- Step 8: Queue Background DB Storage ---
     if response.status != "failed" and getattr(response, "extracted_data", None):
+        logger.info("Queueing database storage background task for %s", file.filename)
         background_tasks.add_task(
             store_extracted_data_background,
             db,
@@ -130,6 +150,7 @@ def _process_single_file(file: UploadFile, background_tasks: BackgroundTasks, db
         )
 
     return response
+
 
 
 # ---------------------------------------------------------------------------

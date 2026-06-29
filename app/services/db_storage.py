@@ -4,13 +4,17 @@ Handles background persistence of OCR results directly to Neon DB.
 """
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
-import uuid
 
 from app.models import OCRDocument, Product, ProductDimension, ProductStorageRule
 from app.schemas import ExtractedData
+from app.database import SessionLocal
+
+logger = logging.getLogger(__name__)
+
 
 def store_extracted_data_background(
     db: Session,
@@ -23,15 +27,20 @@ def store_extracted_data_background(
 ):
     """
     Safely stores the OCR extracted data into the database in a background task.
-    Wrapped in a transaction to prevent partial data states.
-    Strictly avoids inserting missing or completely empty dimension/rule rows.
+    Uses a fresh transaction context (SessionLocal) to prevent request-lifecycle closed connection issues.
+    Saves document status as 'PROCESSING' first, then commits products, and updates status to FAILED on error.
     """
+    logger.info("Starting background database persistence of OCR document: %s", file_name)
+    
+    session = SessionLocal()
+    ocr_doc_id = None
+    
     try:
         # Calculate document hash
         raw_bytes = raw_text.encode('utf-8') if raw_text else b""
         doc_hash = hashlib.sha256(raw_bytes).hexdigest()
 
-        # 1. Store the full OCR result
+        # 1. Create and persist the initial OCRDocument record
         ocr_doc = OCRDocument(
             document_type=document_type or "unknown",
             raw_text=raw_text or "",
@@ -42,13 +51,28 @@ def store_extracted_data_background(
             document_hash=doc_hash,
             file_name=file_name or "unknown",
             file_path=f"uploads/{file_name or 'unknown'}",
-            processing_status=(processing_status or "SUCCESS").upper(),
+            processing_status="PROCESSING",
             error_message=None,
             rejection_reason=None
         )
-        db.add(ocr_doc)
+        session.add(ocr_doc)
+        session.commit()
+        ocr_doc_id = ocr_doc.ocr_id
+        logger.info("Initialized OCRDocument record in DB with status PROCESSING. ID: %s", ocr_doc_id)
+        
+    except Exception as e:
+        session.rollback()
+        logger.critical(
+            "Failed to create initial OCRDocument record in DB for file %s: %s",
+            file_name,
+            e,
+            exc_info=True
+        )
+        session.close()
+        return
 
-        # 2. Iterate through extracted products
+    # 2. Iterate and persist extracted products and dimensions
+    try:
         for p in extracted_data.products:
             sku = p.sku.strip()
             # If no SKU was extracted, we cannot reliably store or link the product
@@ -56,7 +80,7 @@ def store_extracted_data_background(
                 continue
 
             # Check if product exists
-            product = db.query(Product).filter(Product.sku == sku).first()
+            product = session.query(Product).filter(Product.sku == sku).first()
             is_new_product = False
             
             if not product:
@@ -66,8 +90,8 @@ def store_extracted_data_background(
                     product_name=p.product_name or f"Unknown Product ({sku})",
                     weight=p.weight.value if p.weight and p.weight.value else None
                 )
-                db.add(product)
-                db.flush()  # To generate product_id
+                session.add(product)
+                session.flush()  # To generate product_id
 
             # 3. Store Dimensions (Only if extracted)
             has_dimensions = (p.dimensions.length is not None or 
@@ -75,10 +99,10 @@ def store_extracted_data_background(
                               p.dimensions.height is not None)
             
             if has_dimensions:
-                dim_record = db.query(ProductDimension).filter(ProductDimension.product_id == product.product_id).first()
+                dim_record = session.query(ProductDimension).filter(ProductDimension.product_id == product.product_id).first()
                 if not dim_record:
                     dim_record = ProductDimension(product_id=product.product_id)
-                    db.add(dim_record)
+                    session.add(dim_record)
                 
                 # Update dimensions, only overwriting if OCR found something
                 if p.dimensions.length is not None:
@@ -97,13 +121,47 @@ def store_extracted_data_background(
                     max_stack_height=5,
                     orientation_rule="UPRIGHT_ONLY"
                 )
-                db.add(rule_record)
+                session.add(rule_record)
 
-        # Commit transaction once everything is successfully staged
-        db.commit()
+        # Update OCRDocument status to final status
+        ocr_doc = session.query(OCRDocument).filter(OCRDocument.ocr_id == ocr_doc_id).first()
+        if ocr_doc:
+            ocr_doc.processing_status = (processing_status or "SUCCESS").upper()
+            ocr_doc.updated_at = datetime.now(timezone.utc)
+        
+        session.commit()
+        logger.info(
+            "Successfully completed database persistence of products for OCRDocument ID: %s (Status: %s)",
+            ocr_doc_id,
+            processing_status
+        )
 
     except Exception as e:
-        # Rollback on any error to prevent partial commits
-        db.rollback()
-        # In a real system, you'd log this exception
-        print(f"Failed to store OCR data in DB: {e}")
+        session.rollback()
+        logger.error(
+            "Database transaction failed for products linked to OCRDocument ID: %s. Setting status to FAILED. Details: %s",
+            ocr_doc_id,
+            e,
+            exc_info=True
+        )
+        
+        # In a separate transaction context, record the failure details on the OCRDocument
+        try:
+            ocr_doc = session.query(OCRDocument).filter(OCRDocument.ocr_id == ocr_doc_id).first()
+            if ocr_doc:
+                ocr_doc.processing_status = "FAILED"
+                ocr_doc.error_message = f"Database write failure: {e}"
+                ocr_doc.updated_at = datetime.now(timezone.utc)
+                session.commit()
+                logger.info("Successfully updated database status to FAILED for OCRDocument ID: %s", ocr_doc_id)
+        except Exception as inner_e:
+            session.rollback()
+            logger.critical(
+                "Failed to update OCRDocument status to FAILED in DB: %s",
+                inner_e,
+                exc_info=True
+            )
+            
+    finally:
+        session.close()
+

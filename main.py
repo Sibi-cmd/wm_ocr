@@ -2,6 +2,16 @@ import os
 import io
 import zipfile
 import importlib
+import logging
+import sys
+
+# Configure structured Python logging to stdout
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("app.main")
 
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 os.environ["FLAGS_use_mkldnn"] = "0"
@@ -18,6 +28,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from paddleocr import PaddleOCR
 from PIL import Image
 from pydantic import BaseModel
+
 
 app = FastAPI(
     title="Warehouse OCR Micro-Service",
